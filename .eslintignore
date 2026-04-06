@@ -1,0 +1,3 @@
+# Generated service worker files (Workbox output — do not lint)
+public/sw.js
+public/workbox-*.js
