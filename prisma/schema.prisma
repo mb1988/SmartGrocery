@@ -1,0 +1,86 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// Full schema defined in _plan/02_database_schema.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+
+  stores   Store[]
+  lists    List[]
+  learning StoreItemOrder[]
+}
+
+model Store {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  name      String
+  address   String?
+  createdAt DateTime @default(now())
+
+  lists    List[]
+  learning StoreItemOrder[]
+}
+
+model Item {
+  id       Int     @id @default(autoincrement())
+  name     String  @unique
+  category String?
+
+  listItems ListItem[]
+  learning  StoreItemOrder[]
+}
+
+model List {
+  id          Int       @id @default(autoincrement())
+  user        User      @relation(fields: [userId], references: [id])
+  userId      Int
+  store       Store?    @relation(fields: [storeId], references: [id])
+  storeId     Int?
+  name        String?
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  items ListItem[]
+}
+
+model ListItem {
+  id           Int       @id @default(autoincrement())
+  list         List      @relation(fields: [listId], references: [id])
+  listId       Int
+  item         Item      @relation(fields: [itemId], references: [id])
+  itemId       Int
+  quantity     Float     @default(1)
+  unit         String?
+  checked      Boolean   @default(false)
+  checkedOrder Int?
+  checkedAt    DateTime?
+  note         String?
+}
+
+model StoreItemOrder {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  store     Store    @relation(fields: [storeId], references: [id])
+  storeId   Int
+  item      Item     @relation(fields: [itemId], references: [id])
+  itemId    Int
+  avgOrder  Float    @default(0)
+  timesSeen Int      @default(0)
+  lastSeen  DateTime @default(now())
+
+  @@unique([userId, storeId, itemId])
+}
