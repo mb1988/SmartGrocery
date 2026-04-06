@@ -32,6 +32,8 @@ export default function ListDetailPage({ params }: { params: { id: string } }) {
   const listId = parseInt(params.id, 10);
   const [list, setList] = useState<ListDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState("");
 
   const fetchList = useCallback(async () => {
     const res = await fetch(`/api/lists/${listId}`);
@@ -50,6 +52,24 @@ export default function ListDetailPage({ params }: { params: { id: string } }) {
     setList((prev) =>
       prev ? { ...prev, items: prev.items.filter((i) => i.listItemId !== listItemId) } : prev
     );
+  }
+
+  function startEditingName() {
+    if (!list || list.completedAt) return;
+    setNameInput(list.name ?? displayName);
+    setEditingName(true);
+  }
+
+  async function commitName() {
+    setEditingName(false);
+    const trimmed = nameInput.trim();
+    if (!trimmed || trimmed === list?.name) return;
+    setList((prev) => (prev ? { ...prev, name: trimmed } : prev));
+    await fetch(`/api/lists/${listId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: trimmed }),
+    });
   }
 
   async function handleStartShopping() {
@@ -79,7 +99,27 @@ export default function ListDetailPage({ params }: { params: { id: string } }) {
           ‹
         </Link>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-lg font-bold">{loading ? "…" : displayName}</h1>
+          {editingName ? (
+            <input
+              autoFocus
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              onBlur={commitName}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitName();
+                if (e.key === "Escape") setEditingName(false);
+              }}
+              className="w-full rounded-lg border border-green-400 bg-transparent px-2 py-0.5 text-lg font-bold outline-none focus:ring-2 focus:ring-green-500 dark:border-green-500"
+            />
+          ) : (
+            <h1
+              className={`truncate text-lg font-bold ${!list?.completedAt ? "cursor-pointer active:opacity-70" : ""}`}
+              onClick={startEditingName}
+              title={!list?.completedAt ? "Tap to rename" : undefined}
+            >
+              {loading ? "…" : displayName}
+            </h1>
+          )}
           {list?.store && <p className="text-sm text-gray-500">{list.store.name}</p>}
         </div>
       </header>
