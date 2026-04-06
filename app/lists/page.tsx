@@ -35,6 +35,12 @@ export default function ListsPage() {
     fetchLists();
   }, [fetchLists]);
 
+  async function handleDelete(id: number) {
+    if (!window.confirm("Delete this list?")) return;
+    const res = await fetch(`/api/lists/${id}`, { method: "DELETE" });
+    if (res.ok) setLists((prev) => prev.filter((l) => l.id !== id));
+  }
+
   async function handleStoreSelect(storeId: number | null) {
     setShowPicker(false);
     setCreating(true);
@@ -94,6 +100,7 @@ export default function ListsPage() {
                   createdAt={list.createdAt}
                   completedAt={list.completedAt}
                   itemCount={list.itemCount}
+                  onDelete={() => handleDelete(list.id)}
                 />
               </li>
             ))}
