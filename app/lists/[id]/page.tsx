@@ -55,6 +55,24 @@ export default function ListDetailPage({ params }: { params: { id: string } }) {
     );
   }
 
+  async function handleUpdate(listItemId: number, quantity: number, unit: string | null) {
+    setList((prev) =>
+      prev
+        ? {
+            ...prev,
+            items: prev.items.map((i) =>
+              i.listItemId === listItemId ? { ...i, quantity, unit } : i
+            ),
+          }
+        : prev
+    );
+    await fetch(`/api/list-items/${listItemId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ quantity, unit }),
+    });
+  }
+
   function startEditingName() {
     if (!list || list.completedAt) return;
     setNameInput(list.name ?? displayName);
@@ -170,6 +188,7 @@ export default function ListDetailPage({ params }: { params: { id: string } }) {
                 note={item.note}
                 checked={item.checked}
                 onDelete={handleDelete}
+                onUpdate={handleUpdate}
               />
             ))}
           </ul>
