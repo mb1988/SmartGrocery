@@ -23,12 +23,10 @@ Folder structure matches plan: `app/(auth)/`, `app/lists/`, `app/shop/[listId]/`
 
 ---
 
-### Step 3 — Provision Neon PostgreSQL ⏳
+### Step 3 — Provision Neon PostgreSQL ✅
 
-1. Create account at [neon.tech](https://neon.tech)
-2. New project → give it a name (e.g. `smartgrocery`)
-3. In **Connection Details**, select the **Prisma** tab — copy the full `DATABASE_URL`
-4. Paste into `.env` (replace the placeholder value)
+Neon project provisioned. `DATABASE_URL` set in `.env` (Prisma pooler connection string, eu-west-2).
+Migration `20260406211525_init` created and applied.
 
 **Done when:** You can connect to the DB with a Postgres client (e.g. TablePlus, DBeaver, or `psql`).
 
@@ -171,9 +169,21 @@ Built `app/shop/[listId]/page.tsx` and `components/ShopItemButton.tsx`. Unchecke
 
 ## Phase 3 — Integration & Validation
 
-### Step 16 — End-to-End Test (Manual)
+### Step 16 — End-to-End Test (Manual) ⏳ ← NEXT
 
-Run through the full MVP acceptance criteria from `06_mvp_scope.md` manually. Both trips, on a real mobile browser.
+Pre-requisite: seed the DB if not done yet:
+
+```
+npx prisma db seed
+```
+
+Then start dev server:
+
+```
+npm run dev
+```
+
+Run through the full MVP acceptance criteria from `06_mvp_scope.md` manually. Both trips, on a real mobile browser (or browser DevTools mobile viewport).
 
 **Done when:** Learning visibly reorders the list on the second trip.
 
@@ -181,17 +191,25 @@ Run through the full MVP acceptance criteria from `06_mvp_scope.md` manually. Bo
 
 ### Step 17 — Deploy to Vercel
 
-1. Push code to GitHub (`git push origin master`)
-2. Go to [vercel.com](https://vercel.com) → **Add New Project** → Import `SmartGrocery` from GitHub
-3. Vercel auto-detects Next.js — no extra config needed
-4. Add these environment variables in the Vercel project settings (Settings → Environment Variables):
-   - `DATABASE_URL` — your Neon connection string (Prisma format, includes `?sslmode=require`)
-   - `NEXTAUTH_SECRET` — run `openssl rand -base64 32` locally to generate
-   - `NEXTAUTH_URL` — your Vercel deployment URL (e.g. `https://smart-grocery.vercel.app`)
-5. Click **Deploy**
-6. Run the migration against Neon from your local machine (only needed once):
+1. Generate `NEXTAUTH_SECRET` — in PowerShell:
+   ```powershell
+   [Convert]::ToBase64String((1..32 | ForEach-Object { [byte](Get-Random -Max 256) }))
    ```
-   npx prisma migrate deploy
+2. Add to `.env.local`:
+   ```
+   NEXTAUTH_SECRET=<generated value>
+   NEXTAUTH_URL=http://localhost:3000
+   ```
+3. Push code to GitHub (`git push origin master`)
+4. Go to [vercel.com](https://vercel.com) → **Add New Project** → Import `SmartGrocery` from GitHub
+5. Vercel auto-detects Next.js — no extra config needed
+6. Add environment variables in Vercel project settings (Settings → Environment Variables):
+   - `DATABASE_URL` — your Neon pooler connection string
+   - `NEXTAUTH_SECRET` — the generated value from step 1
+   - `NEXTAUTH_URL` — your Vercel deployment URL (e.g. `https://smart-grocery.vercel.app`)
+7. Click **Deploy**
+8. Migration is already applied to the Neon DB — just seed if not done:
+   ```
    npx prisma db seed
    ```
 
