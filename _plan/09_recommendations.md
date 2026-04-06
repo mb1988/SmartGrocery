@@ -21,7 +21,7 @@
 
 **Fix in this plan:** `store_item_order` now has `user_id` as part of a unique constraint `(user_id, store_id, item_id)`. Each user gets their own learning profile per store.
 
-*See `02_database_schema.md`*
+_See `02_database_schema.md`_
 
 ---
 
@@ -31,7 +31,7 @@
 
 **Fix:** Add `email`, `name`, and `created_at` to users now. Even if you skip auth for MVP, the column is ready.
 
-*See `02_database_schema.md`*
+_See `02_database_schema.md`_
 
 ---
 
@@ -41,7 +41,7 @@
 
 **Fix:** Added `GET /api/lists` to the API design.
 
-*See `04_api_design.md`*
+_See `04_api_design.md`_
 
 ---
 
@@ -51,7 +51,7 @@
 
 **Fix:** Added `DELETE /api/lists/:id` and `DELETE /api/list-items/:id`.
 
-*See `04_api_design.md`*
+_See `04_api_design.md`_
 
 ---
 
@@ -61,7 +61,7 @@
 
 **Fix:** Added `quantity` (numeric, default 1) and `unit` (text, nullable) to `list_items`.
 
-*See `02_database_schema.md`*
+_See `02_database_schema.md`_
 
 ---
 
@@ -71,7 +71,7 @@
 
 **Fix:** Unique constraint added. The insert uses an `UPSERT` (`ON CONFLICT DO UPDATE`).
 
-*See `02_database_schema.md`*
+_See `02_database_schema.md`_
 
 ---
 
@@ -86,6 +86,7 @@ Cost: one column, 10 minutes. Value: "ripe ones", "own brand", "gluten free" —
 ### Add `lists.completedAt` instead of a boolean `completed`
 
 A `completedAt TIMESTAMP` column gives you:
+
 - Is it complete? (`completedAt IS NOT NULL`)
 - When was it completed? (for history, analytics, "repeat last week's list")
 
@@ -103,7 +104,7 @@ More information, same effort.
 
 The current plan uses Railway PostgreSQL. This is fine for MVP. However, if you want "shared lists update live when your partner checks something off", you will need realtime push. Supabase wraps Postgres with a realtime subscription layer.
 
-**Recommendation:** Stick with Railway for MVP. If shared lists become a priority, evaluate Supabase at that point — migrating Postgres is straightforward.
+**Recommendation:** Stick with Railway for both the app and the database — same project, same dashboard, `DATABASE_URL` is injected automatically. If shared lists become a priority, evaluate Supabase at that point — migrating Postgres is straightforward.
 
 ---
 
@@ -112,6 +113,7 @@ The current plan uses Railway PostgreSQL. This is fine for MVP. However, if you 
 The original plan defers auth entirely. This is acceptable for local dev. But the moment you want someone else to use it, you need user isolation.
 
 **Recommended minimal auth:**
+
 - Add NextAuth.js with Google sign-in
 - One provider, no passwords, no email verification flow
 - Costs ~2 hours to set up properly
@@ -134,13 +136,13 @@ The current plan triggers learning when the user taps "Done Shopping". Consider 
 
 ## Things That Sound Good But Should Wait
 
-| Idea | Why to Wait |
-|---|---|
-| AI recommendations | No data yet. You need 10+ shopping sessions before patterns are meaningful. |
-| Promotions scraping | Legal and technical complexity. Validate users want this first. |
-| Store maps / aisles | The passive route learning *is* the store map. Manual entry adds friction and duplicates the concept. |
-| React Native app | The Next.js PWA will feel native enough for validation. A second codebase doubles maintenance. |
-| Barcode scanning | Useful, but complex. Solve "can I create and complete a list" first. |
+| Idea                | Why to Wait                                                                                           |
+| ------------------- | ----------------------------------------------------------------------------------------------------- |
+| AI recommendations  | No data yet. You need 10+ shopping sessions before patterns are meaningful.                           |
+| Promotions scraping | Legal and technical complexity. Validate users want this first.                                       |
+| Store maps / aisles | The passive route learning _is_ the store map. Manual entry adds friction and duplicates the concept. |
+| React Native app    | The Next.js PWA will feel native enough for validation. A second codebase doubles maintenance.        |
+| Barcode scanning    | Useful, but complex. Solve "can I create and complete a list" first.                                  |
 
 ---
 

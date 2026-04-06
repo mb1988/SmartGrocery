@@ -13,66 +13,75 @@ A single user can create a shopping list, add items, shop using the app, and ret
 ## In Scope
 
 ### Infrastructure
-- [ ] Next.js 14 project initialised (App Router)
-- [ ] TailwindCSS configured
+
+- [x] Next.js 14 project initialised (App Router)
+- [x] TailwindCSS configured
 - [ ] Railway PostgreSQL database provisioned
-- [ ] Prisma ORM set up and connected
-- [ ] Schema migrated to database
-- [ ] Environment variables configured (local + Vercel)
-- [ ] Deployed to Vercel
+- [x] Prisma ORM set up (v5, schema.prisma with postgresql provider)
+- [x] Schema updated with full models (User, Store, Item, List, ListItem, StoreItemOrder)
+- [ ] Schema migrated to database (run `npx prisma migrate dev --name init` after Step 3)
+- [x] Environment variables configured locally (`.env`, `.env.example`)
+- [ ] Environment variables configured on Railway
+- [ ] Deployed to Railway
 
 ### Auth (Minimal)
-- [ ] Hardcoded single dev user in database (skip full auth for MVP)
-  - OR NextAuth with one provider (Google) — see `09_recommendations.md`
+
+- [x] NextAuth v5 installed and wired in `lib/auth.ts` (guest session, no providers yet)
+  - Providers to add post-MVP or swap for Google — see `09_recommendations.md`
 
 ### Stores
-- [ ] View list of stores
-- [ ] Create a new store
+
+- [x] View list of stores
+- [x] Create a new store
 
 ### Lists
-- [ ] View all lists
-- [ ] Create a new list (select store)
-- [ ] View single list with items
+
+- [x] View all lists
+- [x] Create a new list (select store)
+- [x] View single list with items
 
 ### Items
-- [ ] Add item to list (with autocomplete from catalogue)
-- [ ] Remove item from list
-- [ ] Item is created in global catalogue if it does not exist
+
+- [x] Add item to list (with autocomplete from catalogue)
+- [x] Remove item from list
+- [x] Item is created in global catalogue if it does not exist
 
 ### Shopping Mode
-- [ ] Enter shopping mode from list detail page
-- [ ] Items displayed sorted by learning order (or alphabetical if no data)
-- [ ] Tap item to check it off — records `checked_order`
-- [ ] Tap checked item to uncheck
-- [ ] "Done Shopping" button — marks list complete, triggers learning update
+
+- [x] Enter shopping mode from list detail page
+- [x] Items displayed sorted by learning order (or alphabetical if no data)
+- [x] Tap item to check it off — records `checked_order` (`PATCH /api/list-items/:id`)
+- [x] Tap checked item to uncheck
+- [x] "Done Shopping" button — marks list complete, triggers learning update
 
 ### Learning System
-- [ ] `updateLearning()` function in `lib/learning.ts`
-- [ ] Called when list is marked complete
-- [ ] `getSortedItems()` function in `lib/learning.ts`
-- [ ] Used when fetching list for Shopping Mode
+
+- [x] `updateLearning()` function in `lib/learning.ts`
+- [x] Called when list is marked complete
+- [x] `getSortedItemIds()` function in `lib/learning.ts`
+- [x] Used when fetching list for Shopping Mode
 
 ---
 
 ## Out of Scope (MVP)
 
-| Feature | Where It Lives |
-|---|---|
-| Full auth / sign-up flow | Backlog — High |
-| Edit item quantity / unit in list | Backlog — High |
-| Delete list | Backlog — High |
-| Edit list name | Backlog — Medium |
-| Repeat / clone previous list | Backlog — High |
-| Shared lists | Backlog — Medium |
-| Smart suggestions | Backlog — Medium |
-| Offline mode | Backlog — Medium |
-| Categories UI / filtering | Backlog — Medium |
-| Notifications | Backlog — Low |
-| Location-based store detection | Backlog — Advanced |
-| Promotions | Backlog — External |
-| Barcode scanning | Backlog — Advanced |
-| PWA manifest / install prompt | Backlog — Medium |
-| Dark mode | Nice to have |
+| Feature                           | Where It Lives                                                    |
+| --------------------------------- | ----------------------------------------------------------------- |
+| Full auth / sign-up flow          | Backlog — High                                                    |
+| Edit item quantity / unit in list | Backlog — High                                                    |
+| Delete list                       | Backlog — High                                                    |
+| Edit list name                    | Backlog — Medium                                                  |
+| Repeat / clone previous list      | Backlog — High                                                    |
+| Shared lists                      | Backlog — Medium                                                  |
+| Smart suggestions                 | Backlog — Medium                                                  |
+| Offline mode                      | Backlog — Medium                                                  |
+| Categories UI / filtering         | Backlog — Medium                                                  |
+| Notifications                     | Backlog — Low                                                     |
+| Location-based store detection    | Backlog — Advanced                                                |
+| Promotions                        | Backlog — External                                                |
+| Barcode scanning                  | Backlog — Advanced                                                |
+| PWA manifest / install prompt     | ~~Backlog~~ Done — `public/manifest.json` + `next-pwa` configured |
+| Dark mode                         | Nice to have                                                      |
 
 ---
 
@@ -97,10 +106,10 @@ The MVP is shippable when the following scenario works end-to-end:
 
 ## MVP Non-Functional Requirements
 
-| Requirement | Target |
-|---|---|
-| Page load (mobile 4G) | < 2 seconds |
-| Time to check an item | < 1 tap |
-| Works on iPhone Safari | Yes |
-| Works on Android Chrome | Yes |
+| Requirement                  | Target      |
+| ---------------------------- | ----------- |
+| Page load (mobile 4G)        | < 2 seconds |
+| Time to check an item        | < 1 tap     |
+| Works on iPhone Safari       | Yes         |
+| Works on Android Chrome      | Yes         |
 | No login required (dev user) | Yes for MVP |
