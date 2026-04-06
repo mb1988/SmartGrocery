@@ -34,6 +34,7 @@ export default function ListDetailPage({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState("");
+  const [cloning, setCloning] = useState(false);
 
   const fetchList = useCallback(async () => {
     const res = await fetch(`/api/lists/${listId}`);
@@ -70,6 +71,21 @@ export default function ListDetailPage({ params }: { params: { id: string } }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: trimmed }),
     });
+  }
+
+  async function handleRepeat() {
+    if (!list) return;
+    setCloning(true);
+    const res = await fetch("/api/lists", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ storeId: list.store?.id ?? null, cloneFromListId: listId }),
+    });
+    if (res.ok) {
+      const newList = await res.json();
+      router.push(`/lists/${newList.id}`);
+    }
+    setCloning(false);
   }
 
   async function handleStartShopping() {
@@ -174,14 +190,23 @@ export default function ListDetailPage({ params }: { params: { id: string } }) {
       )}
 
       {list?.completedAt && (
-        <div className="pb-safe fixed bottom-0 left-0 right-0 border-t border-gray-200 bg-white px-4 py-4 text-center text-sm text-gray-400 dark:border-gray-800 dark:bg-gray-900">
-          Completed{" "}
-          {new Date(list.completedAt).toLocaleDateString("en-GB", {
-            day: "numeric",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
+        <div className="pb-safe fixed bottom-0 left-0 right-0 border-t border-gray-200 bg-white px-4 py-4 dark:border-gray-800 dark:bg-gray-900">
+          <button
+            onClick={handleRepeat}
+            disabled={cloning}
+            className="tap-target w-full rounded-2xl bg-green-600 text-base font-bold text-white transition-colors active:bg-green-700 disabled:opacity-40"
+          >
+            {cloning ? "Creating…" : "🔁 Repeat this list"}
+          </button>
+          <p className="mt-2 text-center text-xs text-gray-400">
+            Completed{" "}
+            {new Date(list.completedAt).toLocaleDateString("en-GB", {
+              day: "numeric",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </p>
         </div>
       )}
     </div>
