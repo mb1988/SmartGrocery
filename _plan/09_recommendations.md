@@ -104,7 +104,7 @@ More information, same effort.
 
 The current plan uses Railway PostgreSQL. This is fine for MVP. However, if you want "shared lists update live when your partner checks something off", you will need realtime push. Supabase wraps Postgres with a realtime subscription layer.
 
-**Recommendation:** Stick with Railway for both the app and the database — same project, same dashboard, `DATABASE_URL` is injected automatically. If shared lists become a priority, evaluate Supabase at that point — migrating Postgres is straightforward.
+**Recommendation:** Use Vercel (free, native Next.js support) + Neon (free PostgreSQL). If shared lists become a priority, evaluate Supabase at that point — migrating Postgres is straightforward.
 
 ---
 
