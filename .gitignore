@@ -38,3 +38,9 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# Neon CLI agent skill files (local tooling, not project code)
+.agents/
+.claude/
+.goose/
+skills-lock.json
