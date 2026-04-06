@@ -44,3 +44,6 @@ next-env.d.ts
 .claude/
 .goose/
 skills-lock.json
+
+# Local planning documents — not for public repo
+_plan/
