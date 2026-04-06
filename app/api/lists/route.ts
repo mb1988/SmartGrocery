@@ -20,7 +20,7 @@ export async function GET() {
   });
 
   return NextResponse.json(
-    lists.map((l) => ({
+    lists.map((l: (typeof lists)[number]) => ({
       id: l.id,
       name: l.name,
       storeId: l.storeId,
