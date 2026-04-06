@@ -21,8 +21,8 @@ A single user can create a shopping list, add items, shop using the app, and ret
 - [x] Schema updated with full models (User, Store, Item, List, ListItem, StoreItemOrder)
 - [ ] Schema migrated to database (run `npx prisma migrate dev --name init` after Step 3)
 - [x] Environment variables configured locally (`.env`, `.env.example`)
-- [ ] Environment variables configured on Railway
-- [ ] Deployed to Railway
+- [ ] Environment variables configured on Vercel
+- [ ] Deployed to Vercel
 
 ### Auth (Minimal)
 

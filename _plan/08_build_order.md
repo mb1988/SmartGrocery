@@ -23,12 +23,12 @@ Folder structure matches plan: `app/(auth)/`, `app/lists/`, `app/shop/[listId]/`
 
 ---
 
-### Step 3 — Provision Railway PostgreSQL ⏳
+### Step 3 — Provision Neon PostgreSQL ⏳
 
-1. Create account at railway.app
-2. New project → Add PostgreSQL
-3. Copy the `DATABASE_URL` connection string
-4. Paste into `.env` (already created by `prisma init`)
+1. Create account at [neon.tech](https://neon.tech)
+2. New project → give it a name (e.g. `smartgrocery`)
+3. In **Connection Details**, select the **Prisma** tab — copy the full `DATABASE_URL`
+4. Paste into `.env` (replace the placeholder value)
 
 **Done when:** You can connect to the DB with a Postgres client (e.g. TablePlus, DBeaver, or `psql`).
 
@@ -179,24 +179,23 @@ Run through the full MVP acceptance criteria from `06_mvp_scope.md` manually. Bo
 
 ---
 
-### Step 17 — Deploy to Railway
+### Step 17 — Deploy to Vercel
 
 1. Push code to GitHub (`git push origin master`)
-2. Go to [railway.app](https://railway.app) → New Project → **Deploy from GitHub repo** → select `SmartGrocery`
-3. Railway will auto-detect Nixpacks and run `npm run build` then `node .next/standalone/server.js`
-4. In the Railway project, click **+ New** → **Database** → **Add PostgreSQL**
-5. In your app service → **Variables**, Railway automatically injects `DATABASE_URL` from the linked Postgres plugin
-6. Add these variables manually in the Railway dashboard:
+2. Go to [vercel.com](https://vercel.com) → **Add New Project** → Import `SmartGrocery` from GitHub
+3. Vercel auto-detects Next.js — no extra config needed
+4. Add these environment variables in the Vercel project settings (Settings → Environment Variables):
+   - `DATABASE_URL` — your Neon connection string (Prisma format, includes `?sslmode=require`)
    - `NEXTAUTH_SECRET` — run `openssl rand -base64 32` locally to generate
-   - `NEXTAUTH_URL` — set to your Railway app URL (e.g. `https://smartgrocery-production.up.railway.app`)
-7. Trigger a redeploy (or it will auto-deploy on next push)
-8. In the Railway shell or via a one-off command, run the migration + seed:
+   - `NEXTAUTH_URL` — your Vercel deployment URL (e.g. `https://smart-grocery.vercel.app`)
+5. Click **Deploy**
+6. Run the migration against Neon from your local machine (only needed once):
    ```
    npx prisma migrate deploy
    npx prisma db seed
    ```
 
-**Done when:** The full app is accessible at your Railway URL on a real phone.
+**Done when:** The full app is accessible at your Vercel URL on a real phone.
 
 ---
 

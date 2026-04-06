@@ -8,9 +8,6 @@ const pwa = withPWA({
 });
 
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  // Required for Railway deployment — bundles server into .next/standalone/server.js
-  output: "standalone",
-};
+const nextConfig = {};
 
 export default pwa(nextConfig);
