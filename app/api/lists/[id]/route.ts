@@ -29,7 +29,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   // Sort items by learned order; fall back to alphabetical for unknowns
   let sortedItems = list.items;
   if (list.storeId) {
-    const itemIds = list.items.map((li) => li.itemId);
+    const itemIds = list.items.map((li: (typeof list.items)[number]) => li.itemId);
     const ordered = await getSortedItemIds(userId, list.storeId, itemIds);
     const orderMap = new Map(ordered.map((id, i) => [id, i]));
     sortedItems = [...list.items].sort(
@@ -43,7 +43,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     store: list.store,
     createdAt: list.createdAt,
     completedAt: list.completedAt,
-    items: sortedItems.map((li) => ({
+    items: sortedItems.map((li: (typeof list.items)[number]) => ({
       listItemId: li.id,
       itemId: li.item.id,
       name: li.item.name,
