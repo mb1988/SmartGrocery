@@ -18,6 +18,7 @@ export default function StorePickerModal({ onSelect, onClose }: StorePickerModal
   const [loading, setLoading] = useState(true);
   const [newStoreName, setNewStoreName] = useState("");
   const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -34,16 +35,24 @@ export default function StorePickerModal({ onSelect, onClose }: StorePickerModal
     const name = newStoreName.trim();
     if (!name) return;
     setAdding(true);
-    const res = await fetch("/api/stores", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
-    if (res.ok) {
-      const store: Store = await res.json();
-      onSelect(store.id, store.name);
+    setAddError(null);
+    try {
+      const res = await fetch("/api/stores", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (res.ok) {
+        const store: Store = await res.json();
+        onSelect(store.id, store.name);
+      } else {
+        setAddError("Couldn't add store — please try again");
+      }
+    } catch {
+      setAddError("Network error — please try again");
+    } finally {
+      setAdding(false);
     }
-    setAdding(false);
   }
 
   return (
@@ -104,6 +113,7 @@ export default function StorePickerModal({ onSelect, onClose }: StorePickerModal
             {adding ? "…" : "Add"}
           </button>
         </div>
+        {addError && <p className="mt-2 text-sm text-red-500">{addError}</p>}
       </div>
     </div>
   );
