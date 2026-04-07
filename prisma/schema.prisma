@@ -38,6 +38,8 @@ model Item {
   id       Int     @id @default(autoincrement())
   name     String  @unique
   category String?
+  barcode  String? @unique
+  imageUrl String?
 
   listItems ListItem[]
   learning  StoreItemOrder[]
@@ -68,6 +70,7 @@ model ListItem {
   checkedOrder Int?
   checkedAt    DateTime?
   note         String?
+  priceAtAdd   Float?
 }
 
 model StoreItemOrder {
