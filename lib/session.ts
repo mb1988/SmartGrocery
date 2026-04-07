@@ -10,10 +10,14 @@ let cachedDevUserId: number | null = null;
  * `prisma db seed` has been run (e.g. on a fresh Vercel deploy or wiped DB).
  */
 export async function getSessionUserId(): Promise<number> {
-  const session = await auth();
-  if (session?.user?.id) {
-    const id = parseInt(session.user.id, 10);
-    if (!isNaN(id)) return id;
+  try {
+    const session = await auth();
+    if (session?.user?.id) {
+      const id = parseInt(session.user.id, 10);
+      if (!isNaN(id)) return id;
+    }
+  } catch {
+    // No valid session — fall through to dev user
   }
 
   if (cachedDevUserId !== null) return cachedDevUserId;
