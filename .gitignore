@@ -33,6 +33,10 @@ yarn-error.log*
 # railway / vercel deploy artefacts
 .vercel
 
+# next-pwa generated service workers — regenerated on every build, never commit
+/public/sw.js
+/public/workbox-*.js
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
