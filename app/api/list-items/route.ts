@@ -20,14 +20,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "list not found" }, { status: 404 });
     }
 
-    // Upsert the item in the global catalogue
+    // Upsert the item in the global catalogue; enrich barcode/imageUrl from OFF if supplied
+    const barcode = typeof body.barcode === "string" ? body.barcode.trim() || null : null;
+    const imageUrl = typeof body.imageUrl === "string" ? body.imageUrl.trim() || null : null;
+
     const item = await db.item.upsert({
       where: { name: itemName },
-      update: {},
+      update: {
+        ...(barcode ? { barcode } : {}),
+        ...(imageUrl ? { imageUrl } : {}),
+      },
       create: {
         name: itemName,
         category:
           typeof body.category === "string" ? body.category.trim().toLowerCase() || null : null,
+        barcode,
+        imageUrl,
       },
     });
 
