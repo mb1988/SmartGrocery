@@ -23,9 +23,9 @@ export default function StorePickerModal({ onSelect, onClose }: StorePickerModal
 
   useEffect(() => {
     fetch("/api/stores")
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : []))
       .then((data: Store[]) => {
-        setStores(data);
+        setStores(Array.isArray(data) ? data : []);
         setLoading(false);
       })
       .catch(() => setLoading(false));
