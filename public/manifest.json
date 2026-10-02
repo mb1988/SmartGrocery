@@ -2,21 +2,44 @@
   "name": "SmartGrocery",
   "short_name": "SmartGrocery",
   "description": "The more you use it, the smarter your list gets.",
-  "start_url": "/",
+  "id": "/",
+  "start_url": "/lists",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
+  "background_color": "#f9fafb",
   "theme_color": "#16a34a",
   "orientation": "portrait",
+  "categories": ["food", "shopping", "lifestyle"],
   "icons": [
     {
       "src": "/icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "My lists",
+      "url": "/lists",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Insights",
+      "url": "/insights",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }

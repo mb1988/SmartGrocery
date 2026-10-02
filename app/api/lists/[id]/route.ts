@@ -1,117 +1,135 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSessionUserId } from "@/lib/session";
-import { getSortedItemIds, updateLearning } from "@/lib/learning";
+import { getLearnedOrder, sortByLearnedOrder, updateLearning } from "@/lib/learning";
+import { normalizeCategory } from "@/lib/categories";
+import { jsonError, parseId, readJson, serverError } from "@/lib/api";
 
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
-  const userId = await getSessionUserId();
-  const listId = parseInt(params.id, 10);
-  if (isNaN(listId)) {
-    return NextResponse.json({ error: "invalid id" }, { status: 400 });
-  }
+  try {
+    const userId = await getSessionUserId();
+    const listId = parseId(params.id);
+    if (!listId) return jsonError("invalid id", 400);
 
-  const list = await db.list.findFirst({
-    where: { id: listId, userId },
-    include: {
-      store: { select: { id: true, name: true } },
-      items: {
-        include: {
-          item: { select: { id: true, name: true, category: true } },
+    const list = await db.list.findFirst({
+      where: { id: listId, userId },
+      include: {
+        store: { select: { id: true, name: true } },
+        items: {
+          orderBy: { id: "asc" },
+          include: {
+            item: { select: { id: true, name: true, category: true, imageUrl: true } },
+          },
         },
       },
-    },
-  });
+    });
 
-  if (!list) {
-    return NextResponse.json({ error: "not found" }, { status: 404 });
-  }
+    if (!list) return jsonError("not found", 404);
 
-  // Sort items by learned order; fall back to alphabetical for unknowns
-  let sortedItems = list.items;
-  if (list.storeId) {
-    const itemIds = list.items.map((li: (typeof list.items)[number]) => li.itemId);
-    const ordered = await getSortedItemIds(userId, list.storeId, itemIds);
-    const orderMap = new Map(ordered.map((id, i) => [id, i]));
-    sortedItems = [...list.items].sort(
-      (a, b) => (orderMap.get(a.itemId) ?? 999) - (orderMap.get(b.itemId) ?? 999)
-    );
-  }
-
-  return NextResponse.json({
-    id: list.id,
-    name: list.name,
-    store: list.store,
-    createdAt: list.createdAt,
-    completedAt: list.completedAt,
-    items: sortedItems.map((li: (typeof list.items)[number]) => ({
+    const items = list.items.map((li) => ({
       listItemId: li.id,
       itemId: li.item.id,
       name: li.item.name,
-      category: li.item.category,
+      category: normalizeCategory(li.item.category, li.item.name),
+      imageUrl: li.item.imageUrl,
       quantity: li.quantity,
       unit: li.unit,
       checked: li.checked,
       checkedOrder: li.checkedOrder,
       note: li.note,
-    })),
-  });
+      learned: false,
+    }));
+
+    // Sort items by learned route order; unknown items go last, alphabetically
+    let sortedItems = items;
+    let learnedCount = 0;
+    if (list.storeId) {
+      const avgMap = await getLearnedOrder(
+        userId,
+        list.storeId,
+        items.map((i) => i.itemId)
+      );
+      sortedItems = sortByLearnedOrder(items, avgMap).map((i) => ({
+        ...i,
+        learned: avgMap.has(i.itemId),
+      }));
+      learnedCount = sortedItems.filter((i) => i.learned).length;
+    }
+
+    return NextResponse.json({
+      id: list.id,
+      name: list.name,
+      store: list.store,
+      createdAt: list.createdAt,
+      completedAt: list.completedAt,
+      learnedCount,
+      items: sortedItems,
+    });
+  } catch (err) {
+    return serverError("GET /api/lists/[id]", err);
+  }
 }
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
-  const userId = await getSessionUserId();
-  const listId = parseInt(params.id, 10);
-  if (isNaN(listId)) {
-    return NextResponse.json({ error: "invalid id" }, { status: 400 });
+  try {
+    const userId = await getSessionUserId();
+    const listId = parseId(params.id);
+    if (!listId) return jsonError("invalid id", 400);
+
+    const existing = await db.list.findFirst({ where: { id: listId, userId } });
+    if (!existing) return jsonError("not found", 404);
+
+    const body = await readJson(request);
+    const data: { name?: string | null; completedAt?: Date } = {};
+
+    if (typeof body.name === "string") {
+      // Empty name resets to the default "<Store> – <date>" label
+      data.name = body.name.trim().slice(0, 80) || null;
+    }
+    // Only set completedAt if not already completed
+    const completing = body.completed === true && !existing.completedAt;
+    if (completing) data.completedAt = new Date();
+
+    const list = await db.list.update({
+      where: { id: listId },
+      data,
+      select: {
+        id: true,
+        name: true,
+        storeId: true,
+        createdAt: true,
+        completedAt: true,
+      },
+    });
+
+    // Fire learning update only when completing a list that has a store, unless the
+    // user chose "Ignore this trip" (shopping out of their usual routine).
+    if (completing && existing.storeId && body.skipLearning !== true) {
+      await updateLearning(userId, existing.storeId, listId);
+    }
+
+    return NextResponse.json(list);
+  } catch (err) {
+    return serverError("PATCH /api/lists/[id]", err);
   }
-
-  const existing = await db.list.findFirst({ where: { id: listId, userId } });
-  if (!existing) {
-    return NextResponse.json({ error: "not found" }, { status: 404 });
-  }
-
-  const body = await request.json();
-  const data: { name?: string; completedAt?: Date } = {};
-
-  if (typeof body.name === "string") {
-    data.name = body.name.trim();
-  }
-  // Only set completedAt if not already completed
-  if (body.completed === true && !existing.completedAt) {
-    data.completedAt = new Date();
-  }
-
-  const list = await db.list.update({
-    where: { id: listId },
-    data,
-    select: {
-      id: true,
-      name: true,
-      storeId: true,
-      createdAt: true,
-      completedAt: true,
-    },
-  });
-
-  // Fire learning update only when completing a list that has a store
-  if (body.completed === true && !existing.completedAt && existing.storeId) {
-    await updateLearning(userId, existing.storeId, listId);
-  }
-
-  return NextResponse.json(list);
 }
 
 export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
-  const userId = await getSessionUserId();
-  const listId = parseInt(params.id, 10);
-  if (isNaN(listId)) {
-    return NextResponse.json({ error: "invalid id" }, { status: 400 });
-  }
+  try {
+    const userId = await getSessionUserId();
+    const listId = parseId(params.id);
+    if (!listId) return jsonError("invalid id", 400);
 
-  const existing = await db.list.findFirst({ where: { id: listId, userId } });
-  if (!existing) {
-    return NextResponse.json({ error: "not found" }, { status: 404 });
-  }
+    const existing = await db.list.findFirst({ where: { id: listId, userId } });
+    if (!existing) return jsonError("not found", 404);
 
-  await db.list.delete({ where: { id: listId } });
-  return new NextResponse(null, { status: 204 });
+    // ListItem → List is ON DELETE RESTRICT, so remove the items first
+    await db.$transaction([
+      db.listItem.deleteMany({ where: { listId } }),
+      db.list.delete({ where: { id: listId } }),
+    ]);
+    return new NextResponse(null, { status: 204 });
+  } catch (err) {
+    return serverError("DELETE /api/lists/[id]", err);
+  }
 }

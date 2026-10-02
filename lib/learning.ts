@@ -13,36 +13,42 @@
 import { db } from "@/lib/db";
 
 /**
- * Given a list of item IDs for a store, return them sorted by the user's
- * learned avg_order (ASC). Items with no learning history go to the end,
- * sorted by itemId as a stable fallback.
+ * Returns the learned avg_order for each of the given items at a store.
+ * Items with no learning history are absent from the map.
  */
-export async function getSortedItemIds(
+export async function getLearnedOrder(
   userId: number,
   storeId: number,
   itemIds: number[]
-): Promise<number[]> {
-  if (itemIds.length === 0) return [];
+): Promise<Map<number, number>> {
+  if (itemIds.length === 0) return new Map();
 
   const rows = await db.storeItemOrder.findMany({
     where: { userId, storeId, itemId: { in: itemIds } },
     select: { itemId: true, avgOrder: true },
   });
 
-  const avgMap = new Map(rows.map((r) => [r.itemId, r.avgOrder]));
+  return new Map(rows.map((r) => [r.itemId, r.avgOrder]));
+}
 
-  return [...itemIds].sort((a, b) => {
-    const aAvg = avgMap.get(a);
-    const bAvg = avgMap.get(b);
+/**
+ * Sorts items by the user's learned avg_order (ASC). Items with no learning
+ * history go to the end, sorted alphabetically. Ties on avg_order are also
+ * broken alphabetically (_plan/03_learning_system.md → Edge Cases).
+ */
+export function sortByLearnedOrder<T extends { itemId: number; name: string }>(
+  items: T[],
+  avgMap: Map<number, number>
+): T[] {
+  return [...items].sort((a, b) => {
+    const aAvg = avgMap.get(a.itemId);
+    const bAvg = avgMap.get(b.itemId);
 
-    // Both known — sort by avg_order
-    if (aAvg !== undefined && bAvg !== undefined) return aAvg - bAvg;
-    // Only a is known — a comes first
-    if (aAvg !== undefined) return -1;
-    // Only b is known — b comes first
-    if (bAvg !== undefined) return 1;
-    // Both unknown — stable sort by id
-    return a - b;
+    if (aAvg !== undefined && bAvg !== undefined && aAvg !== bAvg) return aAvg - bAvg;
+    // Only one side is known — the known item comes first
+    if (aAvg !== undefined && bAvg === undefined) return -1;
+    if (aAvg === undefined && bAvg !== undefined) return 1;
+    return a.name.localeCompare(b.name);
   });
 }
 
@@ -63,41 +69,44 @@ export async function updateLearning(
       checked: true,
       checkedOrder: { not: null },
     },
+    orderBy: { checkedOrder: "asc" },
     select: { itemId: true, checkedOrder: true },
   });
 
   if (checkedItems.length === 0) return;
 
-  for (const { itemId, checkedOrder } of checkedItems) {
-    // checkedOrder is guaranteed non-null by the query filter above
-    const order = checkedOrder as number;
-
-    const existing = await db.storeItemOrder.findUnique({
-      where: { userId_storeId_itemId: { userId, storeId, itemId } },
-    });
-
-    if (existing) {
-      const newAvg = (existing.avgOrder * existing.timesSeen + order) / (existing.timesSeen + 1);
-
-      await db.storeItemOrder.update({
-        where: { userId_storeId_itemId: { userId, storeId, itemId } },
-        data: {
-          avgOrder: newAvg,
-          timesSeen: existing.timesSeen + 1,
-          lastSeen: new Date(),
-        },
-      });
-    } else {
-      await db.storeItemOrder.create({
-        data: {
-          userId,
-          storeId,
-          itemId,
-          avgOrder: order,
-          timesSeen: 1,
-          lastSeen: new Date(),
-        },
-      });
-    }
+  // Re-number 1..N so gaps left by unchecking (e.g. 1, 2, 5) don't skew the average,
+  // and collapse duplicate items on the same list to their first position.
+  const positions = new Map<number, number>();
+  for (const { itemId } of checkedItems) {
+    if (!positions.has(itemId)) positions.set(itemId, positions.size + 1);
   }
+
+  const existing = await db.storeItemOrder.findMany({
+    where: { userId, storeId, itemId: { in: [...positions.keys()] } },
+  });
+  const existingMap = new Map(existing.map((e) => [e.itemId, e]));
+  const now = new Date();
+
+  await db.$transaction(
+    [...positions.entries()].map(([itemId, order]) => {
+      const prev = existingMap.get(itemId);
+      if (prev) {
+        const newAvg = (prev.avgOrder * prev.timesSeen + order) / (prev.timesSeen + 1);
+        return db.storeItemOrder.update({
+          where: { id: prev.id },
+          data: { avgOrder: newAvg, timesSeen: prev.timesSeen + 1, lastSeen: now },
+        });
+      }
+      return db.storeItemOrder.create({
+        data: { userId, storeId, itemId, avgOrder: order, timesSeen: 1, lastSeen: now },
+      });
+    })
+  );
+}
+
+/** Wipes all learned route data for one store (Settings → "Reset route"). */
+export async function resetLearning(userId: number, storeId: number): Promise<number> {
+  const { count } = await db.storeItemOrder.deleteMany({ where: { userId, storeId } });
+  return count;
 }
