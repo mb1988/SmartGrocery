@@ -8,11 +8,13 @@ import ItemRow from "@/components/ItemRow";
 import ItemEditSheet from "@/components/ItemEditSheet";
 import SuggestionChips, { type Suggestion } from "@/components/SuggestionChips";
 import Sheet, { ConfirmSheet } from "@/components/Sheet";
+import StorePickerModal from "@/components/StorePickerModal";
 import { useToast } from "@/components/Toast";
 import {
   BackIcon,
   CartIcon,
   EditIcon,
+  ListIcon,
   MoreIcon,
   RepeatIcon,
   RouteIcon,
@@ -40,6 +42,7 @@ interface ListDetail {
   store: { id: number; name: string } | null;
   createdAt: string;
   completedAt: string | null;
+  isTemplate: boolean;
   learnedCount: number;
   items: ListItem[];
 }
@@ -58,6 +61,8 @@ export default function ListDetailPage({ params }: { params: { id: string } }) {
   const [showMenu, setShowMenu] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
 
   const fetchSuggestions = useCallback(async () => {
     try {
@@ -192,6 +197,40 @@ export default function ListDetailPage({ params }: { params: { id: string } }) {
     }
   }
 
+  async function handleSaveAsTemplate() {
+    if (!list) return;
+    setShowMenu(false);
+    setSavingTemplate(true);
+    try {
+      const template = await api<{ id: number }>("/api/lists", {
+        method: "POST",
+        body: { isTemplate: true, name: displayName, cloneFromListId: listId },
+      });
+      toast(`Saved “${displayName}” as a template`, {
+        action: { label: "View", onClick: () => router.push(`/lists/${template.id}`) },
+      });
+    } catch {
+      toast("Couldn't save the template", { tone: "error" });
+    } finally {
+      setSavingTemplate(false);
+    }
+  }
+
+  async function handleUseTemplate(storeId: number | null, name: string | null) {
+    setShowTemplatePicker(false);
+    setCloning(true);
+    try {
+      const newList = await api<{ id: number }>("/api/lists", {
+        method: "POST",
+        body: { storeId, name, cloneFromListId: listId },
+      });
+      router.push(`/lists/${newList.id}`);
+    } catch {
+      toast("Couldn't create a list from this template", { tone: "error" });
+      setCloning(false);
+    }
+  }
+
   async function handleDeleteList() {
     setDeleting(true);
     try {
@@ -247,7 +286,10 @@ export default function ListDetailPage({ params }: { params: { id: string } }) {
                 </h1>
                 {list && (
                   <p className="truncate text-sm text-gray-500 dark:text-gray-400">
-                    {[list.name && list.store?.name, `${list.items.length} items`]
+                    {[
+                      list.isTemplate ? "Template" : list.name && list.store?.name,
+                      `${list.items.length} items`,
+                    ]
                       .filter(Boolean)
                       .join(" · ")}
                   </p>
@@ -295,7 +337,7 @@ export default function ListDetailPage({ params }: { params: { id: string } }) {
           <>
             {isActive && <SuggestionChips suggestions={suggestions} onAdd={handleAddSuggestion} />}
 
-            {list.store && list.items.length > 1 && (
+            {list.store && !list.isTemplate && list.items.length > 1 && (
               <div className="mb-3 flex items-start gap-2 rounded-xl bg-green-50 px-3 py-2.5 text-sm text-green-900 dark:bg-green-950 dark:text-green-200">
                 <RouteIcon className="mt-0.5 h-4 w-4 shrink-0" />
                 <p>
@@ -344,7 +386,16 @@ export default function ListDetailPage({ params }: { params: { id: string } }) {
       {list && (
         <div className="pb-safe fixed inset-x-0 bottom-0 z-10 border-t border-gray-200 bg-white/95 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95">
           <div className="mx-auto max-w-lg px-4 pt-3">
-            {isActive ? (
+            {list.isTemplate ? (
+              <button
+                onClick={() => setShowTemplatePicker(true)}
+                disabled={!list.items.length || cloning}
+                className="tap-target flex w-full items-center justify-center gap-2 rounded-2xl bg-green-600 py-3 text-base font-bold text-white shadow-sm transition-colors active:bg-green-700 disabled:opacity-40"
+              >
+                <RepeatIcon />
+                {cloning ? "Creating…" : "Start a list from this template"}
+              </button>
+            ) : isActive ? (
               <button
                 onClick={() => router.push(`/shop/${listId}`)}
                 disabled={!list.items.length}
@@ -405,6 +456,15 @@ export default function ListDetailPage({ params }: { params: { id: string } }) {
                 onClick={handleRepeat}
               />
             </li>
+            {!list.isTemplate && (
+              <li>
+                <MenuButton
+                  icon={<ListIcon />}
+                  label={savingTemplate ? "Saving…" : "Save as template"}
+                  onClick={handleSaveAsTemplate}
+                />
+              </li>
+            )}
             <li>
               <MenuButton
                 icon={<TrashIcon />}
@@ -418,6 +478,15 @@ export default function ListDetailPage({ params }: { params: { id: string } }) {
             </li>
           </ul>
         </Sheet>
+      )}
+
+      {showTemplatePicker && list && (
+        <StorePickerModal
+          title={`New list from “${displayName}”`}
+          defaultName={displayName}
+          onSelect={handleUseTemplate}
+          onClose={() => setShowTemplatePicker(false)}
+        />
       )}
 
       {confirmDelete && list && (

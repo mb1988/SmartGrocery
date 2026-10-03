@@ -28,6 +28,7 @@ interface ListDetail {
   store: { id: number; name: string } | null;
   createdAt: string;
   completedAt: string | null;
+  isTemplate: boolean;
   items: ShopItem[];
 }
 
@@ -153,11 +154,15 @@ export default function ShopPage({ params }: { params: { listId: string } }) {
   const progress = total > 0 ? (checkedCount / total) * 100 : 0;
   const allDone = total > 0 && remaining === 0;
 
-  if (!loading && list?.completedAt) {
+  if (!loading && (list?.completedAt || list?.isTemplate)) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
-        <span className="text-5xl">✅</span>
-        <h1 className="text-xl font-bold">This trip is already finished</h1>
+        <span className="text-5xl">{list.isTemplate ? "📋" : "✅"}</span>
+        <h1 className="text-xl font-bold">
+          {list.isTemplate
+            ? "Templates aren't shopped directly — start a list from it first"
+            : "This trip is already finished"}
+        </h1>
         <Link
           href={`/lists/${listId}`}
           className="tap-target flex items-center rounded-2xl bg-green-600 px-6 font-semibold text-white"

@@ -12,6 +12,7 @@ Mode, tap Done, and your next list for that store comes back sorted by your rout
 - Shopping Mode: big tap targets, search, haptics, screen wake lock, "ignore this trip"
 - "Your usuals" suggestions and an Insights page built from purchase history — `lib/history.ts`
 - Store management: rename, delete, view or reset the learned route
+- Template lists (e.g. "Weekly shop") — save any list as a template, start new lists from it
 - Installable PWA, light/dark mode
 
 ## Stack
@@ -49,7 +50,7 @@ Open http://localhost:3000. Until Google sign-in is added, all data belongs to a
 | GET / POST        | `/api/stores`              | List / create stores                          |
 | GET / PATCH / DEL | `/api/stores/:id`          | Store + learned route / rename / delete       |
 | DELETE            | `/api/stores/:id/learning` | Reset learned route                           |
-| GET / POST        | `/api/lists`               | List / create (optionally clone) lists        |
+| GET / POST        | `/api/lists`               | Lists (`?templates=1` for templates) / create |
 | GET / PATCH / DEL | `/api/lists/:id`           | Route-sorted list / rename, complete / delete |
 | POST              | `/api/list-items`          | Add item (merges duplicates)                  |
 | PATCH / DELETE    | `/api/list-items/:id`      | Tick, edit quantity/unit/note / remove        |
