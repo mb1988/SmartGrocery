@@ -1,125 +1,74 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { normalizeCategory } from "@/lib/categories";
+import { searchProducts, type ProductResult } from "@/lib/openFoodFacts";
+import { jsonError, optionalString, readJson, serverError } from "@/lib/api";
 
-interface OFFProduct {
-  product_name?: string;
-  brands?: string;
-  image_thumb_url?: string;
-  code?: string;
-  categories_tags?: string[];
-}
-
-interface OFFResponse {
-  products?: OFFProduct[];
-}
-
-export interface ItemSearchResult {
-  id: number | null;
-  name: string;
-  category: string | null;
-  imageUrl: string | null;
-  barcode: string | null;
-  brand: string | null;
-  source: "local" | "off";
-}
+export type ItemSearchResult = ProductResult;
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const search = searchParams.get("search")?.trim() ?? "";
+    const search = searchParams.get("search")?.trim().toLowerCase().slice(0, 80) ?? "";
 
     if (!search) {
       return NextResponse.json([]);
     }
 
-    // Local catalogue first
-    const localItems = await db.item.findMany({
-      where: {
-        name: { contains: search.toLowerCase(), mode: "insensitive" },
-      },
-      select: { id: true, name: true, category: true, imageUrl: true, barcode: true },
-      take: 10,
-      orderBy: { name: "asc" },
+    // Local catalogue first, OFF in parallel so slow lookups don't stack
+    const [localItems, offResults] = await Promise.all([
+      db.item.findMany({
+        where: { name: { contains: search, mode: "insensitive" } },
+        select: { id: true, name: true, category: true, imageUrl: true, barcode: true },
+        take: 20,
+      }),
+      // OFF only adds value once there's something meaningful to search for
+      search.length >= 3 ? searchProducts(search).catch(() => []) : Promise.resolve([]),
+    ]);
+
+    // Prefix matches first ("milk" before "buttermilk"), then shorter names
+    localItems.sort((a, b) => {
+      const aPrefix = a.name.startsWith(search) ? 0 : 1;
+      const bPrefix = b.name.startsWith(search) ? 0 : 1;
+      return aPrefix - bPrefix || a.name.length - b.name.length || a.name.localeCompare(b.name);
     });
 
-    const results: ItemSearchResult[] = localItems.map((item) => ({
+    const results: ItemSearchResult[] = localItems.slice(0, 8).map((item) => ({
       ...item,
+      category: normalizeCategory(item.category, item.name),
       brand: null,
       source: "local" as const,
     }));
 
-    const seen = new Set(results.map((r) => r.name.toLowerCase()));
-
-    // Augment with Open Food Facts UK products
-    try {
-      const offUrl =
-        `https://world.openfoodfacts.org/api/v2/search` +
-        `?search_terms=${encodeURIComponent(search)}` +
-        `&countries_tags=en:united-kingdom` +
-        `&page_size=6` +
-        `&fields=product_name,brands,image_thumb_url,code,categories_tags` +
-        `&search_simple=1`;
-
-      const offRes = await fetch(offUrl, {
-        headers: { "User-Agent": "SmartGrocery/1.0" },
-        signal: AbortSignal.timeout(4000),
-      });
-
-      if (offRes.ok) {
-        const offData: OFFResponse = await offRes.json();
-        for (const product of offData.products ?? []) {
-          const name = product.product_name?.trim().toLowerCase();
-          if (!name || seen.has(name)) continue;
-
-          // Pick the most specific English category tag
-          const enTag = (product.categories_tags ?? []).filter((t) => t.startsWith("en:")).at(-1);
-          const category = enTag ? enTag.replace("en:", "").replace(/-/g, " ") : null;
-
-          results.push({
-            id: null,
-            name,
-            category,
-            imageUrl: product.image_thumb_url ?? null,
-            barcode: product.code ?? null,
-            brand: product.brands?.split(",")[0].trim() ?? null,
-            source: "off",
-          });
-          seen.add(name);
-        }
-      }
-    } catch {
-      // OFF timeout or error — serve local results only
+    const seen = new Set(results.map((r) => r.name));
+    for (const product of offResults) {
+      if (seen.has(product.name)) continue;
+      results.push(product);
+      seen.add(product.name);
     }
 
     return NextResponse.json(results);
   } catch (err) {
-    console.error("GET /api/items error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverError("GET /api/items", err);
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const name = typeof body.name === "string" ? body.name.trim().toLowerCase() : "";
-    if (!name) {
-      return NextResponse.json({ error: "name is required" }, { status: 400 });
-    }
-
-    const category =
-      typeof body.category === "string" ? body.category.trim().toLowerCase() || null : null;
+    const body = await readJson(request);
+    const name = optionalString(body.name, 120)?.toLowerCase() ?? "";
+    if (!name) return jsonError("name is required", 400);
 
     // Upsert: if already exists return existing item (200), else create
     const item = await db.item.upsert({
       where: { name },
       update: {},
-      create: { name, category },
+      create: { name, category: normalizeCategory(optionalString(body.category), name) },
       select: { id: true, name: true, category: true },
     });
 
     return NextResponse.json(item, { status: 200 });
   } catch (err) {
-    console.error("POST /api/items error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverError("POST /api/items", err);
   }
 }

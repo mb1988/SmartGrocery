@@ -1,27 +1,45 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSessionUserId } from "@/lib/session";
+import { jsonError, optionalString, readJson, serverError } from "@/lib/api";
+
+// Per-user data — never prerender at build time
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
     const userId = await getSessionUserId();
 
-    const lists = await db.list.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        name: true,
-        storeId: true,
-        store: { select: { name: true } },
-        createdAt: true,
-        completedAt: true,
-        _count: { select: { items: true } },
-      },
-    });
+    const [lists, checkedCounts] = await Promise.all([
+      db.list.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          name: true,
+          storeId: true,
+          store: { select: { name: true } },
+          createdAt: true,
+          completedAt: true,
+          _count: { select: { items: true } },
+          items: {
+            take: 4,
+            orderBy: { id: "asc" },
+            select: { item: { select: { name: true } } },
+          },
+        },
+      }),
+      db.listItem.groupBy({
+        by: ["listId"],
+        where: { checked: true, list: { userId } },
+        _count: { _all: true },
+      }),
+    ]);
+
+    const checkedMap = new Map(checkedCounts.map((c) => [c.listId, c._count._all]));
 
     return NextResponse.json(
-      lists.map((l: (typeof lists)[number]) => ({
+      lists.map((l) => ({
         id: l.id,
         name: l.name,
         storeId: l.storeId,
@@ -29,11 +47,12 @@ export async function GET() {
         createdAt: l.createdAt,
         completedAt: l.completedAt,
         itemCount: l._count.items,
+        checkedCount: checkedMap.get(l.id) ?? 0,
+        preview: l.items.map((li) => li.item.name),
       }))
     );
   } catch (err) {
-    console.error("GET /api/lists error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverError("GET /api/lists", err);
   }
 }
 
@@ -41,10 +60,16 @@ export async function POST(request: Request) {
   try {
     const userId = await getSessionUserId();
 
-    const body = await request.json();
+    const body = await readJson(request);
     const storeId = typeof body.storeId === "number" ? body.storeId : null;
-    const name = typeof body.name === "string" ? body.name.trim() || null : null;
+    const name = optionalString(body.name, 80);
     const cloneFromListId = typeof body.cloneFromListId === "number" ? body.cloneFromListId : null;
+
+    // Never trust IDs from the client — the store and source list must belong to this user
+    if (storeId !== null) {
+      const store = await db.store.findFirst({ where: { id: storeId, userId } });
+      if (!store) return jsonError("store not found", 404);
+    }
 
     // Optionally clone items from a previous list
     let clonedItems: {
@@ -54,8 +79,11 @@ export async function POST(request: Request) {
       note: string | null;
     }[] = [];
     if (cloneFromListId) {
+      const source = await db.list.findFirst({ where: { id: cloneFromListId, userId } });
+      if (!source) return jsonError("source list not found", 404);
       clonedItems = await db.listItem.findMany({
         where: { listId: cloneFromListId },
+        orderBy: { id: "asc" },
         select: { itemId: true, quantity: true, unit: true, note: true },
       });
     }
@@ -78,7 +106,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(list, { status: 201 });
   } catch (err) {
-    console.error("POST /api/lists error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverError("POST /api/lists", err);
   }
 }

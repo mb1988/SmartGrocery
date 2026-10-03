@@ -3,24 +3,35 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f9fafb; /* gray-50 */
+  --foreground: #111827; /* gray-900 */
   --accent: #16a34a; /* green-600 */
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #030712; /* gray-950 */
+    --foreground: #f3f4f6; /* gray-100 */
   }
+}
+
+html {
+  color-scheme: light dark;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  /* Prevent zoom on input focus on iOS */
   -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+/* Inputs under 16px make iOS Safari zoom the page on focus */
+input,
+select,
+textarea {
+  font-size: 16px;
 }
 
 @layer utilities {
@@ -30,5 +41,88 @@ body {
   /* Minimum tap target size per plan (48x48px) */
   .tap-target {
     @apply min-h-[48px] min-w-[48px];
+  }
+  /* Respect the iPhone home indicator / notch when installed as a PWA */
+  .pb-safe {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .bottom-safe {
+    bottom: env(safe-area-inset-bottom);
+  }
+  /* Item names are stored lowercase — show "Milk" without changing the data */
+  .capitalize-first::first-letter {
+    text-transform: uppercase;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-sheet-up {
+  animation: sheet-up 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.animate-fade-in {
+  animation: fade-in 180ms ease-out;
+}
+.animate-pop {
+  animation: pop 260ms ease-out;
+}
+.animate-toast-in {
+  animation: toast-in 200ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-sheet-up,
+  .animate-fade-in,
+  .animate-pop,
+  .animate-toast-in {
+    animation: none;
   }
 }

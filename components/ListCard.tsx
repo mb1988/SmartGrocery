@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { listDisplayName } from "@/lib/client";
+import { TrashIcon } from "./icons";
 
 interface ListCardProps {
   id: number;
@@ -8,6 +10,7 @@ interface ListCardProps {
   completedAt: string | null;
   itemCount: number;
   checkedCount?: number;
+  preview?: string[];
   onDelete?: () => void;
 }
 
@@ -19,66 +22,64 @@ export default function ListCard({
   completedAt,
   itemCount,
   checkedCount = 0,
+  preview = [],
   onDelete,
 }: ListCardProps) {
-  const displayName =
-    name ??
-    `${storeName ?? "Shop"} – ${new Date(createdAt).toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "short",
-    })}`;
-
+  const displayName = listDisplayName(name, storeName, createdAt);
   const isCompleted = !!completedAt;
+  const progress = itemCount > 0 ? (checkedCount / itemCount) * 100 : 0;
+  const more = itemCount - preview.length;
 
   return (
-    <div className="flex items-center gap-2">
-      <Link
-        href={`/lists/${id}`}
-        className="flex flex-1 items-center justify-between rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-transform active:scale-[0.98] dark:border-gray-700 dark:bg-gray-900"
-      >
-        <div className="flex min-w-0 flex-col gap-1">
-          <span className="truncate text-base font-semibold">{displayName}</span>
-          {storeName && (
-            <span className="text-sm text-gray-500 dark:text-gray-400">{storeName}</span>
-          )}
-          <span className="text-sm text-gray-500 dark:text-gray-400">
-            {checkedCount} / {itemCount} items
+    <div
+      className={`group relative rounded-2xl border bg-white shadow-sm transition-transform active:scale-[0.99] dark:bg-gray-900 ${
+        isCompleted
+          ? "border-gray-100 dark:border-gray-800"
+          : "border-gray-200 dark:border-gray-700"
+      }`}
+    >
+      <Link href={`/lists/${id}`} className="block p-4 pr-14">
+        <div className="flex items-baseline gap-2">
+          <span
+            className={`truncate text-base font-semibold ${isCompleted ? "text-gray-500 dark:text-gray-400" : ""}`}
+          >
+            {displayName}
           </span>
+          {isCompleted && (
+            <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+              Done
+            </span>
+          )}
         </div>
 
-        <span
-          className={`ml-4 shrink-0 rounded-full px-3 py-1 text-xs font-medium ${
-            isCompleted
-              ? "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
-              : "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-          }`}
-        >
-          {isCompleted ? "Completed" : "Active"}
-        </span>
+        <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+          {[name && storeName, `${itemCount} item${itemCount === 1 ? "" : "s"}`]
+            .filter(Boolean)
+            .join(" · ")}
+          {!isCompleted && checkedCount > 0 && ` · ${checkedCount} ticked`}
+        </p>
+
+        {preview.length > 0 && (
+          <p className="mt-1 truncate text-sm text-gray-400 dark:text-gray-500">
+            {preview.join(", ")}
+            {more > 0 && ` +${more}`}
+          </p>
+        )}
+
+        {!isCompleted && itemCount > 0 && checkedCount > 0 && (
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+            <div className="h-full rounded-full bg-green-500" style={{ width: `${progress}%` }} />
+          </div>
+        )}
       </Link>
 
       {onDelete && (
         <button
           onClick={onDelete}
-          aria-label="Delete list"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-gray-200 bg-white text-gray-400 shadow-sm transition-colors active:bg-red-50 active:text-red-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500"
+          aria-label={`Delete ${displayName}`}
+          className="absolute right-1 top-1 flex h-12 w-12 items-center justify-center rounded-xl text-gray-300 transition-colors hover:text-red-500 active:text-red-500 dark:text-gray-600"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <polyline points="3 6 5 6 21 6" />
-            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-            <path d="M10 11v6M14 11v6" />
-            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-          </svg>
+          <TrashIcon className="h-[18px] w-[18px]" />
         </button>
       )}
     </div>

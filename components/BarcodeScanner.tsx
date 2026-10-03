@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { CloseIcon } from "./icons";
 
 interface BarcodeScannerProps {
   onDetected: (barcode: string) => void;
@@ -11,9 +12,13 @@ export default function BarcodeScanner({ onDetected, onClose }: BarcodeScannerPr
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
   const controlsRef = useRef<{ stop: () => void } | null>(null);
+  // Keep the latest callback without restarting the camera when the parent re-renders
+  const onDetectedRef = useRef(onDetected);
+  onDetectedRef.current = onDetected;
 
   useEffect(() => {
     let cancelled = false;
+    let detected = false;
 
     async function startScanner() {
       try {
@@ -25,17 +30,20 @@ export default function BarcodeScanner({ onDetected, onClose }: BarcodeScannerPr
         const controls = await reader.decodeFromConstraints(
           { video: { facingMode: "environment" } },
           videoRef.current,
-          (result, err) => {
-            if (cancelled) return;
-            if (result) {
-              controls.stop();
-              onDetected(result.getText());
-            }
-            // err is just "not found yet" on most frames — ignore
-            void err;
+          (result) => {
+            // Errors on most frames just mean "no barcode yet" — ignore them
+            if (cancelled || detected || !result) return;
+            detected = true;
+            controls.stop();
+            if ("vibrate" in navigator) navigator.vibrate?.(40);
+            onDetectedRef.current(result.getText());
           }
         );
 
+        if (cancelled) {
+          controls.stop();
+          return;
+        }
         controlsRef.current = controls;
       } catch {
         if (!cancelled) {
@@ -50,30 +58,33 @@ export default function BarcodeScanner({ onDetected, onClose }: BarcodeScannerPr
       cancelled = true;
       controlsRef.current?.stop();
     };
-  }, [onDetected]);
+  }, []);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3">
+      <div className="pt-safe flex items-center justify-between px-4 py-3">
         <span className="text-sm font-semibold text-white">Scan barcode</span>
         <button
           onClick={() => {
             controlsRef.current?.stop();
             onClose();
           }}
-          className="rounded-full bg-white/10 px-3 py-1 text-sm text-white active:bg-white/20"
+          aria-label="Close scanner"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white active:bg-white/20"
         >
-          Cancel
+          <CloseIcon />
         </button>
       </div>
 
       {/* Viewfinder */}
-      <div className="relative flex flex-1 items-center justify-center">
+      <div className="relative flex flex-1 items-center justify-center overflow-hidden">
         <video ref={videoRef} className="h-full w-full object-cover" muted playsInline autoPlay />
         {/* Aim guide */}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="h-40 w-72 rounded-2xl border-4 border-green-400 opacity-80" />
+          <div className="relative h-40 w-72 rounded-2xl border-4 border-green-400/90 shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]">
+            <div className="absolute inset-x-4 top-1/2 h-0.5 animate-pulse bg-red-500/80" />
+          </div>
         </div>
         {error && (
           <div className="absolute inset-x-4 top-4 rounded-xl bg-red-600 px-4 py-3 text-center text-sm text-white">
@@ -82,7 +93,7 @@ export default function BarcodeScanner({ onDetected, onClose }: BarcodeScannerPr
         )}
       </div>
 
-      <p className="py-4 text-center text-xs text-gray-400">
+      <p className="pb-safe pt-4 text-center text-sm text-gray-300">
         Point the camera at a product barcode
       </p>
     </div>
