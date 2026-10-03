@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import ListCard from "@/components/ListCard";
 import StorePickerModal from "@/components/StorePickerModal";
 import BottomNav from "@/components/BottomNav";
 import InstallPrompt from "@/components/InstallPrompt";
 import { ConfirmSheet } from "@/components/Sheet";
 import { useToast } from "@/components/Toast";
-import { PlusIcon } from "@/components/icons";
+import { EditIcon, PlusIcon, RepeatIcon } from "@/components/icons";
 import { api, listDisplayName } from "@/lib/client";
 
 interface ListSummary {
@@ -29,6 +30,9 @@ export default function ListsPage() {
   const router = useRouter();
   const toast = useToast();
   const [lists, setLists] = useState<ListSummary[]>([]);
+  const [templates, setTemplates] = useState<ListSummary[]>([]);
+  // Template chosen from the Templates row — the store picker then creates a copy of it
+  const [fromTemplate, setFromTemplate] = useState<ListSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
@@ -39,7 +43,12 @@ export default function ListsPage() {
 
   const fetchLists = useCallback(async () => {
     try {
-      setLists(await api<ListSummary[]>("/api/lists"));
+      const [listData, templateData] = await Promise.all([
+        api<ListSummary[]>("/api/lists"),
+        api<ListSummary[]>("/api/lists?templates=1"),
+      ]);
+      setLists(listData);
+      setTemplates(templateData);
       setLoadError(false);
     } catch {
       setLoadError(true);
@@ -68,12 +77,14 @@ export default function ListsPage() {
   }
 
   async function handleStoreSelect(storeId: number | null, name: string | null) {
+    const template = fromTemplate;
     setShowPicker(false);
+    setFromTemplate(null);
     setCreating(true);
     try {
       const list = await api<{ id: number }>("/api/lists", {
         method: "POST",
-        body: { storeId, name },
+        body: { storeId, name, cloneFromListId: template?.id },
       });
       router.push(`/lists/${list.id}`);
     } catch {
@@ -134,7 +145,7 @@ export default function ListsPage() {
               Try again
             </button>
           </div>
-        ) : lists.length === 0 ? (
+        ) : lists.length === 0 && templates.length === 0 ? (
           // Empty state
           <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
             <span className="flex h-20 w-20 items-center justify-center rounded-3xl bg-green-100 text-4xl dark:bg-green-950">
@@ -178,6 +189,47 @@ export default function ListsPage() {
               </button>
             )}
 
+            {templates.length > 0 && (
+              <section className="mb-6">
+                <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  Templates
+                </h2>
+                <ul className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
+                  {templates.map((t) => (
+                    <li
+                      key={t.id}
+                      className="flex w-44 shrink-0 flex-col rounded-2xl border border-dashed border-green-300 bg-green-50/60 p-3 dark:border-green-800 dark:bg-green-950/40"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="truncate font-semibold">{t.name}</span>
+                        <Link
+                          href={`/lists/${t.id}`}
+                          aria-label={`Edit template ${t.name}`}
+                          className="-m-1 shrink-0 p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                        >
+                          <EditIcon className="h-4 w-4" />
+                        </Link>
+                      </div>
+                      <span className="mb-3 truncate text-xs text-gray-500 dark:text-gray-400">
+                        {t.itemCount} item{t.itemCount === 1 ? "" : "s"}
+                        {t.preview.length > 0 && ` · ${t.preview.join(", ")}`}
+                      </span>
+                      <button
+                        onClick={() => {
+                          setFromTemplate(t);
+                          setShowPicker(true);
+                        }}
+                        disabled={creating || t.itemCount === 0}
+                        className="mt-auto flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl bg-green-600 text-sm font-semibold text-white active:bg-green-700 disabled:opacity-50"
+                      >
+                        <RepeatIcon className="h-4 w-4" /> Use
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
             {completed.length > 0 && (
               <section>
                 <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -207,7 +259,16 @@ export default function ListsPage() {
       <BottomNav />
 
       {showPicker && (
-        <StorePickerModal onSelect={handleStoreSelect} onClose={() => setShowPicker(false)} />
+        <StorePickerModal
+          key={fromTemplate?.id ?? "new"}
+          title={fromTemplate ? `New list from “${fromTemplate.name}”` : "New list"}
+          defaultName={fromTemplate?.name ?? ""}
+          onSelect={handleStoreSelect}
+          onClose={() => {
+            setShowPicker(false);
+            setFromTemplate(null);
+          }}
+        />
       )}
 
       {pendingDelete && (

@@ -14,12 +14,19 @@ interface Store {
 interface StorePickerModalProps {
   onSelect: (storeId: number | null, listName: string | null) => void;
   onClose: () => void;
+  title?: string;
+  defaultName?: string;
 }
 
-export default function StorePickerModal({ onSelect, onClose }: StorePickerModalProps) {
+export default function StorePickerModal({
+  onSelect,
+  onClose,
+  title = "New list",
+  defaultName = "",
+}: StorePickerModalProps) {
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
-  const [listName, setListName] = useState("");
+  const [listName, setListName] = useState(defaultName);
   const [newStoreName, setNewStoreName] = useState("");
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
@@ -52,7 +59,7 @@ export default function StorePickerModal({ onSelect, onClose }: StorePickerModal
   }
 
   return (
-    <Sheet title="New list" onClose={onClose}>
+    <Sheet title={title} onClose={onClose}>
       <label className="mb-1 block text-sm font-medium text-gray-500 dark:text-gray-400">
         Name <span className="font-normal">(optional)</span>
       </label>

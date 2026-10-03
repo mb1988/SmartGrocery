@@ -62,6 +62,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
       store: list.store,
       createdAt: list.createdAt,
       completedAt: list.completedAt,
+      isTemplate: list.isTemplate,
       learnedCount,
       items: sortedItems,
     });
@@ -80,6 +81,11 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     if (!existing) return jsonError("not found", 404);
 
     const body = await readJson(request);
+    // Templates are reusable — they're copied into a new list, never shopped themselves
+    if (body.completed === true && existing.isTemplate) {
+      return jsonError("templates can't be completed", 409);
+    }
+
     const data: { name?: string | null; completedAt?: Date } = {};
 
     if (typeof body.name === "string") {
@@ -99,6 +105,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         storeId: true,
         createdAt: true,
         completedAt: true,
+        isTemplate: true,
       },
     });
 

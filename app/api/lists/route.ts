@@ -6,13 +6,15 @@ import { jsonError, optionalString, readJson, serverError } from "@/lib/api";
 // Per-user data — never prerender at build time
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+/** GET /api/lists — shopping lists; GET /api/lists?templates=1 — saved templates only. */
+export async function GET(request: Request) {
   try {
     const userId = await getSessionUserId();
+    const isTemplate = new URL(request.url).searchParams.get("templates") === "1";
 
     const [lists, checkedCounts] = await Promise.all([
       db.list.findMany({
-        where: { userId },
+        where: { userId, isTemplate },
         orderBy: { createdAt: "desc" },
         select: {
           id: true,
@@ -31,7 +33,7 @@ export async function GET() {
       }),
       db.listItem.groupBy({
         by: ["listId"],
-        where: { checked: true, list: { userId } },
+        where: { checked: true, list: { userId, isTemplate } },
         _count: { _all: true },
       }),
     ]);
@@ -46,6 +48,7 @@ export async function GET() {
         storeName: l.store?.name ?? null,
         createdAt: l.createdAt,
         completedAt: l.completedAt,
+        isTemplate,
         itemCount: l._count.items,
         checkedCount: checkedMap.get(l.id) ?? 0,
         preview: l.items.map((li) => li.item.name),
@@ -62,7 +65,9 @@ export async function POST(request: Request) {
 
     const body = await readJson(request);
     const storeId = typeof body.storeId === "number" ? body.storeId : null;
-    const name = optionalString(body.name, 80);
+    const isTemplate = body.isTemplate === true;
+    // Templates are found by name, so they always need one
+    const name = optionalString(body.name, 80) ?? (isTemplate ? "My template" : null);
     const cloneFromListId = typeof body.cloneFromListId === "number" ? body.cloneFromListId : null;
 
     // Never trust IDs from the client — the store and source list must belong to this user
@@ -93,6 +98,7 @@ export async function POST(request: Request) {
         userId,
         storeId,
         name,
+        isTemplate,
         items: clonedItems.length > 0 ? { create: clonedItems } : undefined,
       },
       select: {
@@ -101,6 +107,7 @@ export async function POST(request: Request) {
         storeId: true,
         createdAt: true,
         completedAt: true,
+        isTemplate: true,
       },
     });
 
